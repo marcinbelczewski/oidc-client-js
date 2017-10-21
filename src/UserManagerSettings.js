@@ -29,7 +29,8 @@ export default class UserManagerSettings extends OidcClientSettings {
         redirectNavigator = new RedirectNavigator(),
         popupNavigator = new PopupNavigator(),
         iframeNavigator = new IFrameNavigator(),
-        userStore = new WebStorageStateStore({ store: Global.sessionStorage })
+        userStore = new WebStorageStateStore({ store: Global.sessionStorage }),
+        resource_server,
     } = {}) {
         super(arguments[0]);
 
@@ -53,6 +54,7 @@ export default class UserManagerSettings extends OidcClientSettings {
         this._iframeNavigator = iframeNavigator;
         
         this._userStore = userStore;
+        this._resource_server = resource_server;        
     }
 
     get popup_redirect_uri() {
@@ -107,4 +109,7 @@ export default class UserManagerSettings extends OidcClientSettings {
     get userStore() {
         return this._userStore;
     }
+    get resource_server() {
+        return this._resource_server;
+    }    
 }

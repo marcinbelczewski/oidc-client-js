@@ -9,12 +9,14 @@ import UserManagerEvents from './UserManagerEvents';
 import SilentRenewService from './SilentRenewService';
 import SessionMonitor from './SessionMonitor';
 import TokenRevocationClient from './TokenRevocationClient';
+import JsonService from './JsonService';
 
 export default class UserManager extends OidcClient {
     constructor(settings = {},
         SilentRenewServiceCtor = SilentRenewService,
         SessionMonitorCtor = SessionMonitor,
-        TokenRevocationClientCtor = TokenRevocationClient
+        TokenRevocationClientCtor = TokenRevocationClient,
+        JsonServiceCtor = JsonService
     ) {
 
         if (!(settings instanceof UserManagerSettings)) {
@@ -24,7 +26,7 @@ export default class UserManager extends OidcClient {
 
         this._events = new UserManagerEvents(settings);
         this._silentRenewService = new SilentRenewServiceCtor(this);
-        
+
         // order is important for the following properties; these services depend upon the events.
         if (this.settings.automaticSilentRenew) {
             Log.debug("automaticSilentRenew is configured, setting up silent renew");
@@ -37,6 +39,7 @@ export default class UserManager extends OidcClient {
         }
 
         this._tokenRevocationClient = new TokenRevocationClientCtor(this._settings);
+        this._jsonService = new JsonServiceCtor();        
     }
 
     get _redirectNavigator() {
@@ -104,7 +107,7 @@ export default class UserManager extends OidcClient {
             return user;
         });
     }
-    
+
     signinPopup(args = {}) {
         Log.debug("UserManager.signinPopup");
 
@@ -259,7 +262,7 @@ export default class UserManager extends OidcClient {
 
                 navigatorParams.url = signinRequest.url;
                 navigatorParams.id = signinRequest.state.id;
-                
+
                 return handle.navigate(navigatorParams);
             }).catch(err => {
                 if (handle.close) {
@@ -275,17 +278,37 @@ export default class UserManager extends OidcClient {
 
         return this.processSigninResponse(url).then(signinResponse => {
             Log.debug("got signin response");
+            return this._getEntitlements(signinResponse.access_token).then(rptToken => {
+                signinResponse.access_token = rptToken;
 
-            let user = new User(signinResponse);
+                let user = new User(signinResponse);
 
-            return this.storeUser(user).then(() => {
-                Log.debug("user stored");
+                return this.storeUser(user).then(() => {
+                    Log.debug("user stored");
 
-                this._events.load(user);
+                    this._events.load(user);
 
-                return user;
+                    return user;
+                });
             });
         });
+    }
+
+    _getEntitlements(token) {
+        Log.debug("Requesting RPT");
+        return this._jsonService.getJson(this._getEntitlementsEndpoint(), token)
+            .then(rptJson => {
+                Log.debug("JSON with RPT received");
+                return rptJson.rpt;
+            });
+    }
+    _getEntitlementsEndpoint() {
+        Log.debug("MetadataService.getEntitlementsEndpoint");
+        if (!this._settings.resource_server) {
+            Log.error("Resource server id is null");
+            throw new Error("Resource server id is null");
+        }
+        return `${this.settings.authority}authz/entitlement/${this._settings.resource_server}`;
     }
     _signinCallback(url, navigator) {
         Log.debug("_signinCallback");
