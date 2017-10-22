@@ -308,7 +308,8 @@ export default class UserManager extends OidcClient {
             Log.error("Resource server id is null");
             throw new Error("Resource server id is null");
         }
-        return `${this.settings.authority}authz/entitlement/${this._settings.resource_server}`;
+        let entitlementsEndpointUrl = `${this.settings.authority}authz/entitlement/${this._settings.resource_server}`;
+        return entitlementsEndpointUrl+"?"+new Date().getTime(); //to bypass IE11 caching this AJAX even when told not too 
     }
     _signinCallback(url, navigator) {
         Log.debug("_signinCallback");
